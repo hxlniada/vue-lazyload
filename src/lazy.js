@@ -437,6 +437,7 @@ export default function (Vue) {
       let src = value
       let loading = this.options.loading
       let error = this.options.error
+      let cors
 
       // value is object
       if (isObject(value)) {
@@ -444,11 +445,13 @@ export default function (Vue) {
         src = value.src
         loading = value.loading || this.options.loading
         error = value.error || this.options.error
+        cors = value.cors === true ? 'anonymous' : value.cors
       }
       return {
         src,
         loading,
-        error
+        error,
+        cors
       }
     }
   }

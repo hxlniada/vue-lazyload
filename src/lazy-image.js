@@ -59,11 +59,12 @@ export default (lazyManager) => {
     },
     methods: {
       init () {
-        const { src, loading, error } = lazyManager._valueFormatter(this.src)
+        const { src, loading, error, cors } = lazyManager._valueFormatter(this.src)
         this.state.loaded = false
         this.options.src = src
         this.options.error = error
         this.options.loading = loading
+        this.options.cors = cors
         this.renderSrc = this.options.loading
       },
       getRect () {
@@ -82,7 +83,7 @@ export default (lazyManager) => {
           return
         }
         const src = this.options.src
-        loadImageAsync({ src }, ({ src }) => {
+        loadImageAsync({ src, cors: this.options.cors }, ({ src }) => {
           this.renderSrc = src
           this.state.loaded = true
         }, e => {

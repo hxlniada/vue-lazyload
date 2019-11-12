@@ -1,5 +1,5 @@
 /*!
- * Vue-Lazyload.js v1.3.3
+ * Vue-Lazyload.js v0.0.3
  * (c) 2019 Awe <hilongjw@gmail.com>
  * Released under the MIT License.
  */
@@ -269,7 +269,7 @@ function extend(target, obj) {
   assignSymbols(target, obj);
 
   for (var key in obj) {
-    if (key !== '__proto__' && hasOwn(obj, key)) {
+    if (isValidKey(key) && hasOwn(obj, key)) {
       var val = obj[key];
       if (isObject$1(val)) {
         if (kindOf(target[key]) === 'undefined' && kindOf(val) === 'function') {
@@ -298,6 +298,14 @@ function isObject$1(obj) {
 
 function hasOwn(obj, key) {
   return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+/**
+ * Returns true if the given `key` is a valid key that can be used for assigning properties.
+ */
+
+function isValidKey(key) {
+  return key !== '__proto__' && key !== 'constructor' && key !== 'prototype';
 }
 
 /**
@@ -527,6 +535,9 @@ var loadImageAsync = function loadImageAsync(item, resolve, reject) {
   }
 
   image.src = item.src;
+  if (item.cors) {
+    image.crossOrigin = item.cors;
+  }
 
   image.onload = function () {
     resolve({
@@ -656,6 +667,7 @@ var ReactiveListener = function () {
         bindType = _ref.bindType,
         $parent = _ref.$parent,
         options = _ref.options,
+        cors = _ref.cors,
         elRenderer = _ref.elRenderer,
         imageCache = _ref.imageCache;
     classCallCheck(this, ReactiveListener);
@@ -666,6 +678,7 @@ var ReactiveListener = function () {
     this.loading = loading;
     this.bindType = bindType;
     this.attempt = 0;
+    this.cors = cors;
 
     this.naturalHeight = 0;
     this.naturalWidth = 0;
@@ -798,7 +811,8 @@ var ReactiveListener = function () {
 
       this.state.loading = true;
       loadImageAsync({
-        src: this.loading
+        src: this.loading,
+        cors: this.cors
       }, function (data) {
         _this2.render('loading', false);
         _this2.state.loading = false;
@@ -843,7 +857,8 @@ var ReactiveListener = function () {
         _this3.record('loadStart');
 
         loadImageAsync({
-          src: _this3.src
+          src: _this3.src,
+          cors: _this3.cors
         }, function (data) {
           _this3.naturalHeight = data.naturalHeight;
           _this3.naturalWidth = data.naturalWidth;
@@ -948,7 +963,7 @@ var Lazy = function (Vue) {
           observerOptions = _ref.observerOptions;
       classCallCheck(this, Lazy);
 
-      this.version = '1.3.3';
+      this.version = '0.0.3';
       this.mode = modeType.event;
       this.ListenerQueue = [];
       this.TargetIndex = 0;
@@ -1052,7 +1067,8 @@ var Lazy = function (Vue) {
         var _valueFormatter2 = this._valueFormatter(binding.value),
             src = _valueFormatter2.src,
             loading = _valueFormatter2.loading,
-            error = _valueFormatter2.error;
+            error = _valueFormatter2.error,
+            cors = _valueFormatter2.cors;
 
         Vue.nextTick(function () {
           src = getBestSelectionFromSrcset(el, _this.options.scale) || src;
@@ -1078,6 +1094,7 @@ var Lazy = function (Vue) {
             loading: loading,
             error: error,
             src: src,
+            cors: cors,
             elRenderer: _this._elRenderer.bind(_this),
             options: _this.options,
             imageCache: _this._imageCache
@@ -1448,6 +1465,7 @@ var Lazy = function (Vue) {
         var src = value;
         var loading = this.options.loading;
         var error = this.options.error;
+        var cors = void 0;
 
         // value is object
         if (isObject(value)) {
@@ -1455,11 +1473,13 @@ var Lazy = function (Vue) {
           src = value.src;
           loading = value.loading || this.options.loading;
           error = value.error || this.options.error;
+          cors = value.cors === true ? 'anonymous' : value.cors;
         }
         return {
           src: src,
           loading: loading,
-          error: error
+          error: error,
+          cors: cors
         };
       }
     }]);
@@ -1686,12 +1706,14 @@ var LazyImage = (function (lazyManager) {
         var _lazyManager$_valueFo = lazyManager._valueFormatter(this.src),
             src = _lazyManager$_valueFo.src,
             loading = _lazyManager$_valueFo.loading,
-            error = _lazyManager$_valueFo.error;
+            error = _lazyManager$_valueFo.error,
+            cors = _lazyManager$_valueFo.cors;
 
         this.state.loaded = false;
         this.options.src = src;
         this.options.error = error;
         this.options.loading = loading;
+        this.options.cors = cors;
         this.renderSrc = this.options.loading;
       },
       getRect: function getRect() {
@@ -1712,7 +1734,7 @@ var LazyImage = (function (lazyManager) {
           return;
         }
         var src = this.options.src;
-        loadImageAsync({ src: src }, function (_ref) {
+        loadImageAsync({ src: src, cors: this.options.cors }, function (_ref) {
           var src = _ref.src;
 
           _this.renderSrc = src;
@@ -1740,8 +1762,6 @@ var index = {
     var lazy = new LazyClass(options);
     var lazyContainer = new LazyContainerMananger({ lazy: lazy });
 
-    var isVue2 = Vue.version.split('.')[0] === '2';
-
     Vue.prototype.$Lazyload = lazy;
 
     if (options.lazyComponent) {
@@ -1752,53 +1772,17 @@ var index = {
       Vue.component('lazy-image', LazyImage(lazy));
     }
 
-    if (isVue2) {
-      Vue.directive('lazy', {
-        bind: lazy.add.bind(lazy),
-        update: lazy.update.bind(lazy),
-        componentUpdated: lazy.lazyLoadHandler.bind(lazy),
-        unbind: lazy.remove.bind(lazy)
-      });
-      Vue.directive('lazy-container', {
-        bind: lazyContainer.bind.bind(lazyContainer),
-        componentUpdated: lazyContainer.update.bind(lazyContainer),
-        unbind: lazyContainer.unbind.bind(lazyContainer)
-      });
-    } else {
-      Vue.directive('lazy', {
-        bind: lazy.lazyLoadHandler.bind(lazy),
-        update: function update(newValue, oldValue) {
-          assignDeep(this.vm.$refs, this.vm.$els);
-          lazy.add(this.el, {
-            modifiers: this.modifiers || {},
-            arg: this.arg,
-            value: newValue,
-            oldValue: oldValue
-          }, {
-            context: this.vm
-          });
-        },
-        unbind: function unbind() {
-          lazy.remove(this.el);
-        }
-      });
-
-      Vue.directive('lazy-container', {
-        update: function update(newValue, oldValue) {
-          lazyContainer.update(this.el, {
-            modifiers: this.modifiers || {},
-            arg: this.arg,
-            value: newValue,
-            oldValue: oldValue
-          }, {
-            context: this.vm
-          });
-        },
-        unbind: function unbind() {
-          lazyContainer.unbind(this.el);
-        }
-      });
-    }
+    Vue.directive('lazy', {
+      bind: lazy.add.bind(lazy),
+      update: lazy.update.bind(lazy),
+      componentUpdated: lazy.lazyLoadHandler.bind(lazy),
+      unbind: lazy.remove.bind(lazy)
+    });
+    Vue.directive('lazy-container', {
+      bind: lazyContainer.bind.bind(lazyContainer),
+      componentUpdated: lazyContainer.update.bind(lazyContainer),
+      unbind: lazyContainer.unbind.bind(lazyContainer)
+    });
   }
 };
 
